@@ -7,17 +7,34 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import * as THREE from "three";
 
-// Register the ScrollTrigger plugin
 if (typeof window !== "undefined") {
   gsap.registerPlugin(ScrollTrigger);
+}
+
+interface GSAPConditions {
+  isDesktop: boolean;
+  isMobile: boolean;
 }
 
 function Model() {
   const { scene } = useGLTF("/wine_bottle.glb");
   const canRef = useRef<THREE.Group>(null);
 
-  // 1. CONSTANT IDLE ANIMATION
-  // This keeps the can "alive" with gentle rotation and bobbing
+  // Type-safe material transparency setup
+  useLayoutEffect(() => {
+    scene.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        materials.forEach((m) => {
+          if (m instanceof THREE.MeshStandardMaterial || m instanceof THREE.MeshPhysicalMaterial || m instanceof THREE.MeshBasicMaterial) {
+            m.transparent = true;
+            m.opacity = 1;
+          }
+        });
+      }
+    });
+  }, [scene]);
+
   useFrame((state) => {
     if (!canRef.current) return;
     const t = state.clock.getElapsedTime();
@@ -28,68 +45,48 @@ function Model() {
   useLayoutEffect(() => {
     if (!canRef.current) return;
 
-    // --- A. INTRO ANIMATION (Independent of scroll) ---
+    const mm = gsap.matchMedia();
+
+    // ─── A. INTRO (Common) ───
     const introTl = gsap.timeline();
-    
-    // Starting state (Above the screen)
-    gsap.set(canRef.current.position, { y: 5, x: 0, z: 0 });
+    gsap.set(canRef.current.position, { y: 5, x: 0 });
     gsap.set(canRef.current.rotation, { x: 2, z: 1 });
     gsap.set(canRef.current.scale, { x: 0.5, y: 0.5, z: 0.5 });
 
-    // Landing in the center
-    introTl.to(canRef.current.position, {
-      y: 0,
-      duration: 1.5,
-      ease: "power4.out",
-    })
-    .to(canRef.current.rotation, {
-      x: 0, z: 0, y: Math.PI * 2,
-      duration: 1.5,
-      ease: "power4.out",
-    }, 0);
+    introTl.to(canRef.current.position, { y: 0, duration: 1.5, ease: "power4.out" })
+           .to(canRef.current.rotation, { x: 0, z: 0, y: Math.PI * 2, duration: 1.5, ease: "power4.out" }, 0);
 
-    // --- B. THE SCROLL & LEAVE TIMELINE ---
-    const scrollTl = gsap.timeline({
-      scrollTrigger: {
-        trigger: ".main-wrapper",
-        start: "top top",
-        end: "bottom bottom",
-        scrub: true, // 1:1 ratio makes it feel "attached" to the page
-      },
+    // ─── B. RESPONSIVE SCROLL LOGIC ───
+    mm.add({ isDesktop: "(min-width: 768px)", isMobile: "(max-width: 767px)" }, (context) => {
+      const { isDesktop } = context.conditions as unknown as GSAPConditions;
+      const scrollTl = gsap.timeline({ scrollTrigger: { trigger: ".main-wrapper", start: "top top", end: "bottom bottom", scrub: true } });
+
+      if (isDesktop) {
+        // Desktop: Slide to the right and scroll away (Your custom logic)
+        scrollTl.to(canRef.current!.position, { x: 2.5, y: -1, duration: 2.2 })
+                .to(canRef.current!.rotation, { x: 0.2, z: -0.1, y: Math.PI * 3.5, duration: 2 }, 0)
+                .to(canRef.current!.position, { y: 10, duration: 8, ease: "none" })
+                .to(canRef.current!.rotation, { y: Math.PI * 6, duration: 8, ease: "none" }, "-=8");
+      } else {
+        // Mobile: No X/Y movement, fade bottle and fade in background overlay
+        scene.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            const materials = Array.isArray(child.material) ? child.material : [child.material];
+            materials.forEach((m) => {
+              if ('opacity' in m) { scrollTl.to(m, { opacity: 0.2, duration: 2 }, 0); }
+            });
+          }
+        });
+        
+        // Fade in the beige background veil from page.tsx
+        scrollTl.to("#mobile-overlay", { opacity: 0.95, duration: 1 }, 0);
+
+        scrollTl.to(canRef.current!.rotation, { y: Math.PI * 4, duration: 10, ease: "none" }, 0);
+      }
     });
 
-    scrollTl
-      // STEP 1: Glide to Anchor Position (Middle-Right)
-      // This part happens during the first ~30% of your scroll
-      .to(canRef.current.position, {
-        x: 2.5,
-        y: -1,
-        z: 0,
-        duration: 2.2,
-      })
-      .to(canRef.current.rotation, {
-        x: 0.2, z: -0.1, y: Math.PI * 3.5,
-        duration: 2,
-      }, 0)
-
-      // STEP 2: "LEAVE BEHIND" (Scroll out of view)
-      // This animates the can UP out of the fixed viewport.
-      // Adjust the final 'y' value to match the speed of your text.
-      .to(canRef.current.position, {
-        y: 10,       // Moves it way up off the top of the screen
-        duration: 8, // Takes a longer portion of the scroll to happen
-        ease: "none",
-      })
-      .to(canRef.current.rotation, {
-        y: Math.PI * 6,
-        duration: 8,
-        ease: "none",
-      }, "-=8");
-
-    return () => {
-      ScrollTrigger.getAll().forEach((t) => t.kill());
-    };
-  }, []);
+    return () => mm.revert();
+  }, [scene]);
 
   return <primitive ref={canRef} object={scene} />;
 }
@@ -97,13 +94,9 @@ function Model() {
 export default function Scene() {
   return (
     <div className="w-full h-full">
-      <Canvas 
-        camera={{ position: [0, 0, 5], fov: 45 }}
-        gl={{ antialias: true }}
-      >
+      <Canvas camera={{ position: [0, 0, 5], fov: 45 }} gl={{ antialias: true }}>
         <ambientLight intensity={1.5} />
         <spotLight position={[5, 10, 5]} intensity={2.5} angle={0.15} />
-        
         <Suspense fallback={null}>
           <Model />
           <Environment preset="city" />

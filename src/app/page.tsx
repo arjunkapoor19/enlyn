@@ -1,11 +1,53 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useEffect, useRef } from "react";
 
 // Keep your existing 3D logic — UNTOUCHED
 const Scene = dynamic(() => import("../components/Scene"), { ssr: false });
 
 export default function Home() {
+  const bgRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLElement>(null);
+  const mobileOverlayRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let ticking = false;
+
+    const handleScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          const scrollY = window.scrollY;
+
+          // ── Parallax: move bg image RIGHT as user scrolls down ──
+          // translateX goes from 0% at top → positive% as scrollY grows
+          if (bgRef.current) {
+            const parallaxX = Math.min(scrollY * 0.12, bgRef.current.offsetWidth - window.innerWidth); // Prevent white space
+            bgRef.current.style.transform = `translateX(${parallaxX}px) translateZ(0)`;
+            bgRef.current.style.opacity = `${Math.max(0.3, 0.9 - scrollY / 500)}`;
+          }
+
+          // ── Mobile readability veil ──
+          // Fades in once user scrolls past the hero section height
+          if (mobileOverlayRef.current && heroRef.current) {
+            const heroHeight = heroRef.current.offsetHeight;
+            // Start fading at 60% of hero, fully opaque by 100%
+            const fadeStart = heroHeight * 0.6;
+            const fadeEnd = heroHeight;
+            const opacity = Math.min(1, Math.max(0, (scrollY - fadeStart) / (fadeEnd - fadeStart)));
+            mobileOverlayRef.current.style.opacity = String(opacity);
+          }
+
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   return (
     <main
       className="main-wrapper relative text-[#1a1a1a] overflow-x-hidden"
@@ -50,10 +92,65 @@ export default function Home() {
         }}
       />
 
-      {/* ─── 3D CANVAS LAYER — ABSOLUTELY UNTOUCHED ─── */}
-      <div className="fixed inset-0 w-full h-screen z-0 pointer-events-none">
+      {/* ══════════════════════════════════════════════════════
+          Z-INDEX STACK (bottom → top):
+          z-[2]  — HeroMountainBg parallax image
+          z-[3]  — 3D bottle (Scene)
+          z-[4]  — Enlyn text + stats pill (hero text content)
+          z-[5]  — Mobile readability veil (scroll-activated)
+          z-[50] — Dock header (always on top)
+      ══════════════════════════════════════════════════════ */}
+
+      {/* ─── HERO MOUNTAIN BACKGROUND (parallax) ─── */}
+      {/* Wrapper is fixed to hero viewport; inner div slides right on scroll */}
+      <div
+        className="fixed inset-0 w-full h-screen z-[2] pointer-events-none overflow-hidden"
+        aria-hidden="true"
+      >
+        <div
+          ref={bgRef}
+          style={{
+            // Start slightly wider than viewport so there's room to slide right
+            // without revealing empty space on the right edge at rest
+            position: "absolute",
+            top: 0,
+            left: "-15%",          // offset so image starts flush-left with room to slide
+            width: "116%",        // extra width buffer for parallax travel
+            height: "100%",
+            willChange: "transform",
+            transform: "translateX(0px) translateZ(0)",
+          }}
+        >
+          <img
+            src="/HeroMountainBg.png"
+            alt=""
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: "center center",
+              display: "block",
+              opacity: 0.8
+              // Responsive: on mobile keep it centered
+            }}
+            draggable={false}
+          />
+        </div>
+      </div>
+
+      {/* ─── 3D CANVAS LAYER — z-[3], ABOVE background image ─── */}
+      <div className="fixed inset-0 w-full h-screen z-[3] pointer-events-none">
         <Scene />
       </div>
+
+      {/* ─── MOBILE READABILITY VEIL — z-[5], fades in on scroll past hero ─── */}
+      {/* Only rendered on mobile (md:hidden). Sits above bottle, below nothing. */}
+      <div
+        id="mobile-overlay"
+        ref={mobileOverlayRef}
+        className="md:hidden fixed inset-0 z-[5] pointer-events-none"
+        style={{ backgroundColor: "#f5f5f0", opacity: 0 }}
+      />
 
       {/* ─── macOS DOCK STYLE HEADER ─── */}
       <style>{`
@@ -185,6 +282,13 @@ export default function Home() {
           background: rgba(255,255,255,0.15);
           backdrop-filter: blur(12px);
         }
+
+        @keyframes scrollDrop {
+          0% { transform: scaleY(0); transform-origin: top; opacity: 0; }
+          40% { transform: scaleY(1); transform-origin: top; opacity: 1; }
+          60% { transform: scaleY(1); transform-origin: bottom; opacity: 1; }
+          100% { transform: scaleY(0); transform-origin: bottom; opacity: 0; }
+        }
       `}</style>
 
       {/* ─── PREMIUM macOS DOCK HEADER ─── */}
@@ -225,8 +329,6 @@ export default function Home() {
               <span style={{ fontSize: 9, color: "rgba(0,0,0,0.45)", letterSpacing: "0.03em", fontWeight: 500 }}>{item.label}</span>
             </a>
           ))}
-
-
         </div>
         {/* Dock reflection */}
         <div
@@ -244,267 +346,111 @@ export default function Home() {
       </header>
 
       {/* ─── CONTENT LAYER ─── */}
-      <div className="relative z-10 w-full">
+      <div className="relative w-full" style={{ zIndex: 4 }}>
 
         {/* ══════════════════════════════
             SECTION 1 — HERO
         ══════════════════════════════ */}
-        <section className="h-screen flex flex-col items-center justify-center text-center px-6" style={{ position: "relative" }}>
-          
-          {/* Text content sits above mountains */}
-          <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center" }}>
-          
-          {/* Eyebrow */}
-          <div className="flex items-center gap-3 mb-8">
-            <div className="luxury-divider" />
-            <span
+        <section
+          ref={heroRef}
+          className="h-screen flex flex-col items-center justify-center text-center px-6"
+          style={{ position: "relative" }}
+        >
+          {/* Hero text content — z-[4] via parent, sits above bottle */}
+          <div style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center" }}>
+
+            {/* Eyebrow */}
+            <div className="flex items-center gap-3 mb-8">
+              <div className="luxury-divider" />
+              <span
+                style={{
+                  fontSize: 9,
+                  letterSpacing: "0.45em",
+                  textTransform: "uppercase",
+                  opacity: 0.4,
+                  fontFamily: "-apple-system, 'SF Pro Text', sans-serif",
+                  fontWeight: 500,
+                }}
+              >
+                Purely Sourced · Responsibly Bottled
+              </span>
+              <div className="luxury-divider" />
+            </div>
+
+            {/* Hero wordmark */}
+            <h1
+              className="hero-word"
               style={{
-                fontSize: 9,
-                letterSpacing: "0.45em",
-                textTransform: "uppercase",
-                opacity: 0.4,
-                fontFamily: "-apple-system, 'SF Pro Text', sans-serif",
-                fontWeight: 500,
+                fontSize: "clamp(180px, 20vw, 280px)",
+                fontWeight: 300,
+                letterSpacing: "-0.03em",
+                lineHeight: 0.82,
+                marginBottom: "2.5rem",
+                fontFamily: "'Cormorant Garamond', 'Didot', 'Bodoni MT', Georgia, serif",
+                fontStyle: "italic",
               }}
             >
-              Purely Sourced · Responsibly Bottled
-            </span>
-            <div className="luxury-divider" />
-          </div>
+              Enlyn
+            </h1>
 
-          {/* Hero wordmark */}
-          <h1
-            className="hero-word"
-            style={{
-              fontSize: "clamp(96px, 20vw, 280px)",
-              fontWeight: 300,
-              letterSpacing: "-0.03em",
-              lineHeight: 0.82,
-              marginBottom: "2.5rem",
-              fontFamily: "'Cormorant Garamond', 'Didot', 'Bodoni MT', Georgia, serif",
-              fontStyle: "italic",
-            }}
-          >
-            Enlyn
-          </h1>
-
-          {/* Stats row — unified pill */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "stretch",
-              background: "rgba(255,255,255,0.28)",
-              backdropFilter: "blur(20px)",
-              WebkitBackdropFilter: "blur(20px)",
-              border: "1px solid rgba(255,255,255,0.6)",
-              borderTop: "1px solid rgba(255,255,255,0.85)",
-              borderRadius: 20,
-              boxShadow: "0 4px 32px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.9) inset",
-              overflow: "hidden",
-              marginTop: "1.5rem",
-            }}
-          >
-            {[
-              { value: "7.8", label: "PH BALANCE" },
-              { value: "∞", label: "ELECTROLYTES" },
-              { value: "0.0", label: "SODIUM" },
-            ].map((stat, i) => (
-              <div key={stat.label} style={{ display: "flex", alignItems: "center" }}>
-                {i > 0 && (
-                  <div style={{ width: 1, alignSelf: "stretch", background: "linear-gradient(to bottom, transparent, rgba(0,0,0,0.09), transparent)", margin: "0" }} />
-                )}
-                <div
-                  style={{
-                    padding: "18px 40px",
-                    textAlign: "center",
-                    position: "relative",
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: 28,
-                      fontWeight: 300,
-                      letterSpacing: "-0.02em",
-                      color: "#0a0a0a",
-                      fontFamily: "'Cormorant Garamond', Georgia, serif",
-                      lineHeight: 1,
-                      marginBottom: 6,
-                    }}
-                  >
-                    {stat.value}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 7.5,
-                      letterSpacing: "0.32em",
-                      textTransform: "uppercase",
-                      opacity: 0.38,
-                      fontFamily: "-apple-system, 'SF Pro Text', sans-serif",
-                      fontWeight: 500,
-                    }}
-                  >
-                    {stat.label}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          </div>{/* end text wrapper */}
-
-          {/* Mountain illustration — full bleed, behind text */}
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              width: "100%",
-              height: "100%",
-              pointerEvents: "none",
-              zIndex: 0,
-            }}
-          >
-            <svg
-              viewBox="0 0 1440 900"
-              xmlns="http://www.w3.org/2000/svg"
-              style={{ width: "100%", height: "100%", display: "block" }}
-              preserveAspectRatio="xMidYMid slice"
-            >
-              <defs>
-                {/* Fade mask: transparent at edges, opaque in center */}
-                <linearGradient id="edgeFade" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="white" stopOpacity="1" />
-                  <stop offset="18%" stopColor="white" stopOpacity="0" />
-                  <stop offset="82%" stopColor="white" stopOpacity="0" />
-                  <stop offset="100%" stopColor="white" stopOpacity="1" />
-                </linearGradient>
-                <mask id="mountainMask">
-                  <rect width="1440" height="900" fill="white" />
-                  <rect width="1440" height="900" fill="url(#edgeFade)" />
-                </mask>
-
-                {/* Vertical fade: fades out at very top and bottom */}
-                <linearGradient id="vFade" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="white" stopOpacity="1" />
-                  <stop offset="25%" stopColor="white" stopOpacity="0" />
-                  <stop offset="70%" stopColor="white" stopOpacity="0" />
-                  <stop offset="100%" stopColor="white" stopOpacity="1" />
-                </linearGradient>
-                <mask id="vMask">
-                  <rect width="1440" height="900" fill="white" />
-                  <rect width="1440" height="900" fill="url(#vFade)" />
-                </mask>
-              </defs>
-
-              <g mask="url(#mountainMask)">
-                <g mask="url(#vMask)">
-
-                  {/* Ridge 1 — far background, barely visible, slowest drift */}
-                  <polyline
-                    style={{ animation: "ridgeDrift1 9s ease-in-out infinite" }}
-                    points="0,900 120,680 220,720 340,620 440,660 560,540 660,580 760,480 860,520 960,430 1060,470 1160,540 1260,600 1360,660 1440,700 1440,900"
-                    fill="none"
-                    stroke="rgba(10,10,10,0.055)"
-                    strokeWidth="1.2"
-                    strokeLinejoin="round"
-                  />
-
-                  {/* Ridge 2 — mid range */}
-                  <polyline
-                    style={{ animation: "ridgeDrift2 11s ease-in-out infinite" }}
-                    points="0,900 80,760 180,740 280,680 380,710 480,610 580,640 680,540 780,570 880,490 960,520 1060,580 1160,620 1260,670 1360,710 1440,740 1440,900"
-                    fill="none"
-                    stroke="rgba(10,10,10,0.09)"
-                    strokeWidth="1.3"
-                    strokeLinejoin="round"
-                  />
-
-                  {/* Ridge 3 — mid-foreground */}
-                  <polyline
-                    style={{ animation: "ridgeDrift3 13s ease-in-out infinite" }}
-                    points="0,900 100,820 200,790 300,730 400,760 500,660 600,700 700,590 800,630 880,560 960,600 1060,650 1160,690 1260,730 1360,770 1440,790 1440,900"
-                    fill="none"
-                    stroke="rgba(10,10,10,0.13)"
-                    strokeWidth="1.5"
-                    strokeLinejoin="round"
-                  />
-
-                  {/* Ridge 4 — foreground, most visible */}
-                  <polyline
-                    style={{ animation: "ridgeDrift1 15s ease-in-out infinite reverse" }}
-                    points="0,900 60,870 160,850 260,810 360,830 460,760 560,790 660,710 740,740 820,680 900,710 980,750 1080,790 1180,820 1280,840 1440,860 1440,900"
-                    fill="none"
-                    stroke="rgba(10,10,10,0.17)"
-                    strokeWidth="1.8"
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                  />
-
-                  {/* Snow cap accents on sharpest peaks of ridge 3 */}
-                  {[
-                    [880, 560, 895, 575, 910, 562],
-                    [700, 590, 715, 606, 730, 592],
-                    [500, 660, 514, 676, 528, 663],
-                  ].map(([x1, y1, xm, ym, x2, y2], i) => (
-                    <polyline
-                      key={i}
-                      points={`${x1},${y1} ${xm},${ym} ${x2},${y2}`}
-                      fill="none"
-                      stroke="rgba(10,10,10,0.12)"
-                      strokeWidth="1"
-                      strokeLinejoin="round"
-                      strokeLinecap="round"
-                      style={{ animation: `ridgeDrift3 13s ease-in-out infinite` }}
-                    />
-                  ))}
-
-                </g>
-              </g>
-            </svg>
-          </div>
-
-          {/* Scroll hint */}
-          <div
-            style={{
-              position: "absolute",
-              bottom: "10vh",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 8,
-              opacity: 0.3,
-            }}
-          >
-            <span style={{ fontSize: 8, letterSpacing: "0.4em", textTransform: "uppercase", fontFamily: "sans-serif" }}>Scroll</span>
+            {/* Stats row — unified pill */}
             <div
               style={{
-                width: 1,
-                height: 48,
-                background: "linear-gradient(to bottom, #0a0a0a, transparent)",
-                animation: "scrollDrop 2s ease-in-out infinite",
+                display: "flex",
+                alignItems: "stretch",
+                background: "rgba(255,255,255,0.28)",
+                backdropFilter: "blur(20px)",
+                WebkitBackdropFilter: "blur(20px)",
+                border: "1px solid rgba(255,255,255,0.6)",
+                borderTop: "1px solid rgba(255,255,255,0.85)",
+                borderRadius: 20,
+                boxShadow: "0 4px 32px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.9) inset",
+                overflow: "hidden",
+                marginTop: "1.5rem",
               }}
-            />
-          </div>
-          <style>{`
-            @keyframes ridgeDrift1 {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-18px); }
-        }
-        @keyframes ridgeDrift2 {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-12px); }
-        }
-        @keyframes ridgeDrift3 {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-22px); }
-        }
+            >
+              {[
+                { value: "7.8", label: "PH BALANCE" },
+                { value: "∞", label: "ELECTROLYTES" },
+                { value: "0.0", label: "SODIUM" },
+              ].map((stat, i) => (
+                <div key={stat.label} style={{ display: "flex", alignItems: "center" }}>
+                  {i > 0 && (
+                    <div style={{ width: 1, alignSelf: "stretch", background: "linear-gradient(to bottom, transparent, rgba(0,0,0,0.09), transparent)" }} />
+                  )}
+                  <div style={{ padding: "18px 40px", textAlign: "center" }}>
+                    <div
+                      style={{
+                        fontSize: 28,
+                        fontWeight: 300,
+                        letterSpacing: "-0.02em",
+                        color: "#0a0a0a",
+                        fontFamily: "'Cormorant Garamond', Georgia, serif",
+                        lineHeight: 1,
+                        marginBottom: 6,
+                      }}
+                    >
+                      {stat.value}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 7.5,
+                        letterSpacing: "0.32em",
+                        textTransform: "uppercase",
+                        opacity: 0.38,
+                        fontFamily: "-apple-system, 'SF Pro Text', sans-serif",
+                        fontWeight: 500,
+                      }}
+                    >
+                      {stat.label}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
 
-        @keyframes scrollDrop {
-              0% { transform: scaleY(0); transform-origin: top; opacity: 0; }
-              40% { transform: scaleY(1); transform-origin: top; opacity: 1; }
-              60% { transform: scaleY(1); transform-origin: bottom; opacity: 1; }
-              100% { transform: scaleY(0); transform-origin: bottom; opacity: 0; }
-            }
-          `}</style>
+          </div>
+
         </section>
 
         {/* ══════════════════════════════
@@ -512,7 +458,7 @@ export default function Home() {
         ══════════════════════════════ */}
         <section className="flex items-center justify-start px-[8%] py-32">
           <div className="max-w-xl">
-            
+
             {/* Overline */}
             <div className="flex items-center gap-3 mb-8">
               <div style={{ width: 28, height: 1, background: "rgba(0,0,0,0.25)" }} />
@@ -545,17 +491,11 @@ export default function Home() {
               <em style={{ fontStyle: "italic", fontWeight: 300 }}>Refined</em>
               <br />
               for the{" "}
-              <span
-                style={{
-                  WebkitTextStroke: "1px rgba(10,10,10,0.4)",
-                  color: "transparent",
-                }}
-              >
+              <span style={{ WebkitTextStroke: "1px rgba(10,10,10,0.4)", color: "transparent" }}>
                 Modern Body.
               </span>
             </h2>
 
-            {/* Feature rows — stacked, left-aligned, separated by hairlines */}
             <div style={{ borderTop: "1px solid rgba(0,0,0,0.08)", marginTop: 8 }}>
               {[
                 {
@@ -579,7 +519,6 @@ export default function Home() {
                     borderBottom: "1px solid rgba(0,0,0,0.08)",
                   }}
                 >
-                  {/* Number */}
                   <span
                     style={{
                       fontSize: 9,
@@ -593,8 +532,6 @@ export default function Home() {
                   >
                     {card.num}
                   </span>
-
-                  {/* Title */}
                   <h4
                     style={{
                       fontSize: 9,
@@ -610,8 +547,6 @@ export default function Home() {
                   >
                     {card.title}
                   </h4>
-
-                  {/* Body */}
                   <p
                     style={{
                       fontSize: 13,
@@ -657,7 +592,7 @@ export default function Home() {
             <div className="cta-ring" style={{ position: "absolute", inset: -12, borderRadius: "50%", border: "1px solid rgba(0,0,0,0.08)" }} />
             <div className="cta-ring" style={{ position: "absolute", inset: -26, borderRadius: "50%", border: "1px solid rgba(0,0,0,0.05)", animationDelay: "0.8s", animation: "ringPulse 3s ease-in-out infinite" }} />
             <div className="cta-ring" style={{ position: "absolute", inset: -42, borderRadius: "50%", border: "1px solid rgba(0,0,0,0.03)", animationDelay: "1.6s", animation: "ringPulse 3s ease-in-out infinite" }} />
-            
+
             <button
               className="cta-btn relative z-10 rounded-full flex flex-col items-center justify-center gap-0.5"
               style={{ width: 148, height: 148 }}
@@ -699,7 +634,7 @@ export default function Home() {
               letterSpacing: "0.05em",
             }}
           >
-            Free delivery on orders over $120
+            Free delivery on orders over Rs.1000
           </p>
         </section>
 
@@ -720,9 +655,8 @@ export default function Home() {
               fontWeight: 500,
             }}
           >
-            Enlyn Water Co. © 2024
+            Enlyn Water Co. © 2026
           </p>
-
           <div
             style={{
               fontSize: 11,
@@ -734,31 +668,6 @@ export default function Home() {
           >
             Pure. Refined. Yours.
           </div>
-
-          <div className="flex gap-8">
-            {["Instagram", "Sustainability", "Stockists"].map((link) => (
-              <a
-                key={link}
-                href="#"
-                style={{
-                  fontSize: 9,
-                  letterSpacing: "0.3em",
-                  textTransform: "uppercase",
-                  opacity: 0.3,
-                  fontFamily: "sans-serif",
-                  fontWeight: 500,
-                  textDecoration: "none",
-                  color: "inherit",
-                  transition: "opacity 0.2s",
-                }}
-                onMouseEnter={(e) => ((e.target as HTMLElement).style.opacity = "0.7")}
-                onMouseLeave={(e) => ((e.target as HTMLElement).style.opacity = "0.3")}
-              >
-                {link}
-              </a>
-            ))}
-          </div>
-
           <p
             style={{
               fontSize: 9,
