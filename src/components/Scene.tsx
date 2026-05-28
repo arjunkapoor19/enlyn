@@ -59,14 +59,15 @@ function Model() {
     // ─── B. RESPONSIVE SCROLL LOGIC ───
     mm.add({ isDesktop: "(min-width: 768px)", isMobile: "(max-width: 767px)" }, (context) => {
       const { isDesktop } = context.conditions as unknown as GSAPConditions;
-      const scrollTl = gsap.timeline({ scrollTrigger: { trigger: ".main-wrapper", start: "top top", end: "bottom bottom", scrub: true } });
+      const scrollTl = gsap.timeline({ scrollTrigger: { trigger: ".main-wrapper", start: "top top", end: "+=50%", scrub: true} });
+      const scrollRot = gsap.timeline({ scrollTrigger: { trigger: ".main-wrapper", start: "top top", end: "bottom bottom", scrub: true} });
 
       if (isDesktop) {
         // Desktop: Slide to the right and scroll away (Your custom logic)
-        scrollTl.to(canRef.current!.position, { x: 2.5, y: -1, duration: 2.2 })
+        scrollTl.to(canRef.current!.position, { x: 2.5, y: -0.3, duration: 2.2 })
                 .to(canRef.current!.rotation, { x: 0.2, z: -0.1, y: Math.PI * 3.5, duration: 2 }, 0)
-                .to(canRef.current!.position, { y: 10, duration: 8, ease: "none" })
-                .to(canRef.current!.rotation, { y: Math.PI * 6, duration: 8, ease: "none" }, "-=8");
+                // .to(canRef.current!.position, { y: 10, duration: 8, ease: "none" })
+        scrollRot.to(canRef.current!.rotation, { y: Math.PI * 3, duration: 8, ease: "none" }, "-=8");
       } else {
         // Mobile: No X/Y movement, fade bottle and fade in background overlay
         scene.traverse((child) => {
@@ -79,9 +80,8 @@ function Model() {
         });
         
         // Fade in the beige background veil from page.tsx
-        scrollTl.to("#mobile-overlay", { opacity: 0.95, duration: 1 }, 0);
 
-        scrollTl.to(canRef.current!.rotation, { y: Math.PI * 4, duration: 10, ease: "none" }, 0);
+        scrollRot.to(canRef.current!.rotation, { y: Math.PI * 4, duration: 10, ease: "none" }, 0);
       }
     });
 

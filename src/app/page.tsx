@@ -2,6 +2,9 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useRef } from "react";
+import Header from "./header";
+import Link from "next/link";
+import Image from "next/image";
 
 // Keep your existing 3D logic — UNTOUCHED
 const Scene = dynamic(() => import("../components/Scene"), { ssr: false });
@@ -24,7 +27,7 @@ export default function Home() {
           if (bgRef.current) {
             const parallaxX = Math.min(scrollY * 0.12, bgRef.current.offsetWidth - window.innerWidth); // Prevent white space
             bgRef.current.style.transform = `translateX(${parallaxX}px) translateZ(0)`;
-            bgRef.current.style.opacity = `${Math.max(0.3, 0.9 - scrollY / 500)}`;
+            bgRef.current.style.opacity = `${Math.max(0.4, 0.9 - scrollY / 300)}`;
           }
 
           // ── Mobile readability veil ──
@@ -34,7 +37,7 @@ export default function Home() {
             // Start fading at 60% of hero, fully opaque by 100%
             const fadeStart = heroHeight * 0.6;
             const fadeEnd = heroHeight;
-            const opacity = Math.min(1, Math.max(0, (scrollY - fadeStart) / (fadeEnd - fadeStart)));
+            const opacity = Math.min(0.35, Math.max(0, (scrollY - fadeStart) / (fadeEnd - fadeStart)));
             mobileOverlayRef.current.style.opacity = String(opacity);
           }
 
@@ -58,7 +61,7 @@ export default function Home() {
     >
       {/* ─── GRAIN TEXTURE OVERLAY ─── */}
       <div
-        className="fixed inset-0 z-[1] pointer-events-none opacity-[0.035]"
+        className="fixed inset-0 z-1 pointer-events-none opacity-[0.035]"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
           backgroundRepeat: "repeat",
@@ -68,7 +71,7 @@ export default function Home() {
 
       {/* ─── AMBIENT LIGHT ORBS ─── */}
       <div
-        className="fixed pointer-events-none z-[1]"
+        className="fixed pointer-events-none z-1"
         style={{
           top: "-10vh",
           left: "60%",
@@ -80,7 +83,7 @@ export default function Home() {
         }}
       />
       <div
-        className="fixed pointer-events-none z-[1]"
+        className="fixed pointer-events-none z-1"
         style={{
           bottom: "10vh",
           left: "-10vw",
@@ -104,7 +107,7 @@ export default function Home() {
       {/* ─── HERO MOUNTAIN BACKGROUND (parallax) ─── */}
       {/* Wrapper is fixed to hero viewport; inner div slides right on scroll */}
       <div
-        className="fixed inset-0 w-full h-screen z-[2] pointer-events-none overflow-hidden"
+        className="fixed inset-0 w-full h-screen z-2 pointer-events-none overflow-hidden"
         aria-hidden="true"
       >
         <div
@@ -121,25 +124,24 @@ export default function Home() {
             transform: "translateX(0px) translateZ(0)",
           }}
         >
-          <img
+          <Image
             src="/HeroMountainBg.png"
             alt=""
+            fill
             style={{
-              width: "100%",
-              height: "100%",
               objectFit: "cover",
               objectPosition: "center center",
               display: "block",
               opacity: 0.8
-              // Responsive: on mobile keep it centered
             }}
             draggable={false}
+            priority
           />
         </div>
       </div>
 
       {/* ─── 3D CANVAS LAYER — z-[3], ABOVE background image ─── */}
-      <div className="fixed inset-0 w-full h-screen z-[3] pointer-events-none">
+      <div className="fixed inset-0 w-full h-screen z-3 pointer-events-none">
         <Scene />
       </div>
 
@@ -148,202 +150,13 @@ export default function Home() {
       <div
         id="mobile-overlay"
         ref={mobileOverlayRef}
-        className="md:hidden fixed inset-0 z-[5] pointer-events-none"
+        className="md:hidden fixed inset-0 z-5 pointer-events-none"
         style={{ backgroundColor: "#f5f5f0", opacity: 0 }}
       />
 
       {/* ─── macOS DOCK STYLE HEADER ─── */}
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap');
 
-        .dock-nav {
-          background: rgba(255, 255, 255, 0.18);
-          backdrop-filter: blur(28px) saturate(180%);
-          -webkit-backdrop-filter: blur(28px) saturate(180%);
-          border: 1px solid rgba(255, 255, 255, 0.55);
-          box-shadow:
-            0 2px 0px rgba(255,255,255,0.8) inset,
-            0 -1px 0px rgba(0,0,0,0.04) inset,
-            0 8px 32px rgba(0,0,0,0.08),
-            0 2px 8px rgba(0,0,0,0.06);
-        }
-
-        .dock-item {
-          position: relative;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 2px;
-          padding: 8px 16px 10px;
-          border-radius: 14px;
-          transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-          cursor: pointer;
-        }
-
-        .dock-item:hover {
-          background: rgba(255,255,255,0.5);
-          transform: translateY(-4px) scale(1.06);
-        }
-
-        .dock-item::after {
-          content: '';
-          position: absolute;
-          bottom: 4px;
-          width: 4px;
-          height: 4px;
-          border-radius: 50%;
-          background: rgba(0,0,0,0.25);
-          opacity: 0;
-          transition: opacity 0.2s;
-        }
-
-        .dock-item:hover::after {
-          opacity: 1;
-        }
-
-        .dock-divider {
-          width: 1px;
-          height: 32px;
-          background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.1), transparent);
-          margin: 0 4px;
-        }
-
-        .hero-word {
-          background: linear-gradient(170deg, #0a0a0a 30%, #5a5a5a 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
-
-        .stat-card {
-          background: rgba(255,255,255,0.3);
-          backdrop-filter: blur(16px);
-          -webkit-backdrop-filter: blur(16px);
-          border: 1px solid rgba(255,255,255,0.5);
-          border-top: 1px solid rgba(255,255,255,0.8);
-          box-shadow: 0 4px 24px rgba(0,0,0,0.04);
-        }
-
-        .luxury-divider {
-          width: 48px;
-          height: 1px;
-          background: linear-gradient(to right, transparent, rgba(0,0,0,0.3), transparent);
-        }
-
-        .section-card {
-          background: rgba(255,255,255,0.22);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-          border: 1px solid rgba(255,255,255,0.5);
-          box-shadow: 0 8px 48px rgba(0,0,0,0.06), 0 2px 0 rgba(255,255,255,0.7) inset;
-        }
-
-        .cta-ring {
-          position: absolute;
-          inset: -12px;
-          border-radius: 50%;
-          border: 1px solid rgba(0,0,0,0.08);
-          animation: ringPulse 3s ease-in-out infinite;
-        }
-        .cta-ring-2 {
-          inset: -24px;
-          animation-delay: 0.8s;
-          border-color: rgba(0,0,0,0.05);
-        }
-        .cta-ring-3 {
-          inset: -38px;
-          animation-delay: 1.6s;
-          border-color: rgba(0,0,0,0.03);
-        }
-
-        @keyframes ringPulse {
-          0%, 100% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.04); opacity: 0.5; }
-        }
-
-        .cta-btn {
-          background: linear-gradient(145deg, #0e0e0e 0%, #2a2a2a 100%);
-          box-shadow:
-            0 0 0 1px rgba(255,255,255,0.08) inset,
-            0 16px 48px rgba(0,0,0,0.3),
-            0 4px 12px rgba(0,0,0,0.2);
-          transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
-        }
-
-        .cta-btn:hover {
-          transform: scale(0.96);
-          box-shadow:
-            0 0 0 1px rgba(255,255,255,0.1) inset,
-            0 8px 24px rgba(0,0,0,0.25);
-        }
-
-        .footer-bar {
-          border-top: 1px solid rgba(0,0,0,0.07);
-          background: rgba(255,255,255,0.15);
-          backdrop-filter: blur(12px);
-        }
-
-        @keyframes scrollDrop {
-          0% { transform: scaleY(0); transform-origin: top; opacity: 0; }
-          40% { transform: scaleY(1); transform-origin: top; opacity: 1; }
-          60% { transform: scaleY(1); transform-origin: bottom; opacity: 1; }
-          100% { transform: scaleY(0); transform-origin: bottom; opacity: 0; }
-        }
-      `}</style>
-
-      {/* ─── PREMIUM macOS DOCK HEADER ─── */}
-      <header className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
-        <div
-          className="dock-nav flex items-center gap-1 px-4 py-3 rounded-[22px]"
-          style={{ fontFamily: "-apple-system, 'SF Pro Display', 'Helvetica Neue', sans-serif" }}
-        >
-          {/* Brand mark */}
-          <div className="dock-item">
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                background: "linear-gradient(145deg, #0a0a0a, #2a2a2a)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-              }}
-            >
-              <span style={{ color: "#f0ece4", fontSize: 12, fontWeight: 700, letterSpacing: "0.05em" }}>E</span>
-            </div>
-            <span style={{ fontSize: 9, color: "rgba(0,0,0,0.45)", letterSpacing: "0.03em", fontWeight: 500 }}>Enlyn</span>
-          </div>
-
-          <div className="dock-divider" />
-
-          {/* Nav items */}
-          {[
-            { label: "Source", icon: "◈" },
-            { label: "Science", icon: "◎" },
-            { label: "Philosophy", icon: "◇" },
-          ].map((item) => (
-            <a key={item.label} href="#" className="dock-item" style={{ textDecoration: "none" }}>
-              <span style={{ fontSize: 18, lineHeight: 1, opacity: 0.6, color: "#1a1a1a" }}>{item.icon}</span>
-              <span style={{ fontSize: 9, color: "rgba(0,0,0,0.45)", letterSpacing: "0.03em", fontWeight: 500 }}>{item.label}</span>
-            </a>
-          ))}
-        </div>
-        {/* Dock reflection */}
-        <div
-          style={{
-            position: "absolute",
-            bottom: -8,
-            left: "10%",
-            right: "10%",
-            height: 8,
-            background: "rgba(0,0,0,0.06)",
-            borderRadius: "0 0 50% 50%",
-            filter: "blur(6px)",
-          }}
-        />
-      </header>
+      <Header />
 
       {/* ─── CONTENT LAYER ─── */}
       <div className="relative w-full" style={{ zIndex: 4 }}>
@@ -569,7 +382,7 @@ export default function Home() {
         {/* ══════════════════════════════
             SECTION 3 — CTA
         ══════════════════════════════ */}
-        <section className="flex flex-col items-center justify-center px-6 py-32 text-center">
+        <section className="flex flex-col items-center justify-center px-6 py-10 text-center">
           <h3
             style={{
               fontSize: "clamp(52px, 10vw, 152px)",
@@ -588,6 +401,7 @@ export default function Home() {
           </h3>
 
           {/* Premium circular CTA */}
+          <Link href={'/order'}>
           <div style={{ position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
             <div className="cta-ring" style={{ position: "absolute", inset: -12, borderRadius: "50%", border: "1px solid rgba(0,0,0,0.08)" }} />
             <div className="cta-ring" style={{ position: "absolute", inset: -26, borderRadius: "50%", border: "1px solid rgba(0,0,0,0.05)", animationDelay: "0.8s", animation: "ringPulse 3s ease-in-out infinite" }} />
@@ -623,7 +437,7 @@ export default function Home() {
               </span>
             </button>
           </div>
-
+        </Link>
           <p
             style={{
               marginTop: "3rem",
