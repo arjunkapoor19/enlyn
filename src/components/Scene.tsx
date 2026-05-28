@@ -63,7 +63,7 @@ function Model() {
       const scrollRot = gsap.timeline({ scrollTrigger: { trigger: ".main-wrapper", start: "top top", end: "bottom bottom", scrub: true} });
 
       if (isDesktop) {
-        // Desktop: Slide to the right and scroll away (Your custom logic)
+        // Desktop: Slide to the right and scroll away
         scrollTl.to(canRef.current!.position, { x: 2.5, y: -0.3, duration: 2.2 })
                 .to(canRef.current!.rotation, { x: 0.2, z: -0.1, y: Math.PI * 3.5, duration: 2 }, 0)
                 // .to(canRef.current!.position, { y: 10, duration: 8, ease: "none" })

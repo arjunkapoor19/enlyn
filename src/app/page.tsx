@@ -6,7 +6,6 @@ import Header from "./header";
 import Link from "next/link";
 import Image from "next/image";
 
-// Keep your existing 3D logic — UNTOUCHED
 const Scene = dynamic(() => import("../components/Scene"), { ssr: false });
 
 export default function Home() {
@@ -150,7 +149,7 @@ export default function Home() {
       <div
         id="mobile-overlay"
         ref={mobileOverlayRef}
-        className="md:hidden fixed inset-0 z-5 pointer-events-none"
+        className="md:hidden fixed inset-0 z-4 pointer-events-none"
         style={{ backgroundColor: "#f5f5f0", opacity: 0 }}
       />
 
@@ -170,7 +169,7 @@ export default function Home() {
           style={{ position: "relative" }}
         >
           {/* Hero text content — z-[4] via parent, sits above bottle */}
-          <div style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", zIndex: 10 }}>
 
             {/* Eyebrow */}
             <div className="flex items-center gap-3 mb-8">
