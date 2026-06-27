@@ -38,8 +38,9 @@ function Model() {
   useFrame((state) => {
     if (!canRef.current) return;
     const t = state.clock.getElapsedTime();
-    canRef.current.rotation.y += 0.005; 
-    canRef.current.position.y += Math.sin(t) * 0.001; 
+    canRef.current.rotation.y += 0.005;
+    // gentle bob — oscillates around current position rather than absolute 0
+    canRef.current.position.y += Math.sin(t * 1.2) * 0.0008;
   });
 
   useLayoutEffect(() => {
@@ -53,7 +54,7 @@ function Model() {
     gsap.set(canRef.current.rotation, { x: 2, z: 1 });
     gsap.set(canRef.current.scale, { x: 0.5, y: 0.5, z: 0.5 });
 
-    introTl.to(canRef.current.position, { y: 0, duration: 1.5, ease: "power4.out" })
+    introTl.to(canRef.current.position, { y: -0.2, duration: 1.5, ease: "power4.out" })
            .to(canRef.current.rotation, { x: 0, z: 0, y: Math.PI * 2, duration: 1.5, ease: "power4.out" }, 0);
 
     // ─── B. RESPONSIVE SCROLL LOGIC ───
@@ -95,11 +96,11 @@ export default function Scene() {
   return (
     <div className="w-full h-full">
       <Canvas camera={{ position: [0, 0, 5], fov: 45 }} gl={{ antialias: true }}>
-        <ambientLight intensity={1.5} />
-        <spotLight position={[5, 10, 5]} intensity={2.5} angle={0.15} />
+        <ambientLight intensity={2.0} />
+        <spotLight position={[0, 10, 3]} intensity={3.0} angle={0.2} />
         <Suspense fallback={null}>
           <Model />
-          <Environment preset="city" />
+          <Environment preset="sunset" />
         </Suspense>
       </Canvas>
     </div>
